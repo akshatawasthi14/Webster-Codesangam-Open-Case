@@ -1,0 +1,11 @@
+{
+  "name": "open-case",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Open Case - grievance redressal platform (Webster 2026, Team Strange Loop)",
+  "scripts": {
+    "test": "npm --prefix server test",
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev"
+  }
+}
