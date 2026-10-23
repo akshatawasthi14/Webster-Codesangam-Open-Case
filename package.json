@@ -4,8 +4,14 @@
   "private": true,
   "description": "Open Case - grievance redressal platform (Webster 2026, Team Strange Loop)",
   "scripts": {
+    "install:all": "npm --prefix server install && npm --prefix client install",
+    "migrate": "npm --prefix server run migrate",
+    "seed": "npm --prefix server run seed",
+    "seed:demo": "npm --prefix server run seed:demo",
     "test": "npm --prefix server test",
     "dev:server": "npm --prefix server run dev",
-    "dev:client": "npm --prefix client run dev"
+    "dev:client": "npm --prefix client run dev",
+    "build:client": "npm --prefix client run build",
+    "build": "npm --prefix client run build"
   }
 }

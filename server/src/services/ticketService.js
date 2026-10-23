@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { ACTOR, AUDIT, ROLES, STATUS } from '../config/constants.js';
 import { config } from '../config/index.js';
 import { pool } from '../db/pool.js';
@@ -8,6 +9,7 @@ import { sanitizeFileName, storedPath } from '../utils/files.js';
 import { generateReceiptToken, hashReceiptToken } from '../utils/token.js';
 import { appendAuditEvent, getTimeline } from './auditService.js';
 import { createNotifications, publishNotifications } from './notificationService.js';
+import { clearStatsCache } from './statsService.js';
 import { availableTransitions, evaluateTransition } from './workflowService.js';
 
 const HOUR_MS = 3600 * 1000;
@@ -125,7 +127,9 @@ export async function createTicket({ actor, data, files = [], idempotencyKey = n
     ? sha256Hex(JSON.stringify([data.title, data.description, data.category, data.priority, evidence.map((e) => e.sha256)]))
     : null;
 
-  const receiptToken = anonymous ? generateReceiptToken() : null;
+  const customTicketId = crypto.randomUUID();
+  // The tracking receipt ID and complaint ID are the exact same identifier
+  const receiptToken = anonymous ? customTicketId : null;
   const receiptHash = anonymous ? hashReceiptToken(receiptToken) : null;
   const now = new Date();
 
@@ -136,13 +140,13 @@ export async function createTicket({ actor, data, files = [], idempotencyKey = n
 
     const inserted = await client.query(
       `INSERT INTO tickets
-         (title, description, category, priority, status, is_anonymous, receipt_token_hash,
+         (id, title, description, category, priority, status, is_anonymous, receipt_token_hash,
           created_by, idempotency_key, idempotency_fingerprint, original_due_at, due_at, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, 'FILED', $5, $6, $7, $8, $11, $9, $9, $10, $10)
+       VALUES ($12, $1, $2, $3, $4, 'FILED', $5, $6, $7, $8, $11, $9, $9, $10, $10)
        ON CONFLICT DO NOTHING
        RETURNING *`,
       [data.title, data.description, data.category, data.priority, anonymous, receiptHash,
-        anonymous ? null : actor.id, idempotencyKey, dueAt, now, fingerprint],
+        anonymous ? null : actor.id, idempotencyKey, dueAt, now, fingerprint, customTicketId],
     );
 
     if (!inserted.rows[0]) {
@@ -214,12 +218,13 @@ export async function createTicket({ actor, data, files = [], idempotencyKey = n
 
   if (result.replayed) return result;
   publishNotifications(result.notifications); // only after COMMIT
+  clearStatsCache();
   return {
     replayed: false,
     ticketId: result.ticket.id,
     status: result.ticket.status,
     dueAt: result.ticket.due_at,
-    receiptToken, // null for registered petitioners; shown ONCE for anonymous ones
+    receiptToken: anonymous ? result.ticket.id : null, // Complaint ID and tracking receipt token are identical
   };
 }
 
@@ -302,6 +307,7 @@ export async function transitionTicket({ ticketId, actor, to, expectedVersion, i
 
   if (!outcome) return null;
   publishNotifications(outcome.notifications); // only after COMMIT
+  clearStatsCache();
   if (actor.type === ACTOR.SYSTEM) return { ticketId: outcome.ticketId, status: to };
   // The actor just passed every access check inside the transaction; e.g. an officer who assigns a case to a
   // colleague no longer "sees" it afterwards, but must still receive the result of the change they committed.
@@ -448,9 +454,20 @@ export async function getAttachmentFile(actor, ticketId, attachmentId) {
 }
 
 export async function findTicketByReceipt(token) {
+  const trimmed = typeof token === 'string' ? token.trim() : '';
+  if (!trimmed) return null;
+
+  // 1. Direct search by Complaint ID (UUID)
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed);
+  if (isUuid) {
+    const { rows } = await pool.query('SELECT id FROM tickets WHERE id = $1', [trimmed]);
+    if (rows[0]?.id) return rows[0].id;
+  }
+
+  // 2. Search by receipt_token_hash
   const { rows } = await pool.query(
-    'SELECT id FROM tickets WHERE is_anonymous AND receipt_token_hash = $1',
-    [hashReceiptToken(token)],
+    'SELECT id FROM tickets WHERE receipt_token_hash = $1',
+    [hashReceiptToken(trimmed)],
   );
   return rows[0]?.id ?? null;
 }

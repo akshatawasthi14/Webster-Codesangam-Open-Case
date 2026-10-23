@@ -3,9 +3,9 @@ import { config } from '../config/index.js';
 import { pool } from '../db/pool.js';
 
 /**
- * Public transparency dashboard. Aggregates are computed in SQL; any cell with fewer than
- * STATS_MIN_COUNT cases is suppressed (null + suppressed flag), and small categories are pooled into
- * "OTHER" (itself suppressed if still small), so individual cases cannot be picked out.
+ * Public transparency dashboard. Aggregates are computed in SQL.
+ * When STATS_MIN_COUNT is 0 (or 1), exact raw numbers are returned without suppression.
+ * When STATS_MIN_COUNT is >= 5, cells with fewer than STATS_MIN_COUNT cases are suppressed.
  * The result is cached briefly in memory so a surge of visitors does not become a surge of queries.
  */
 
@@ -13,9 +13,10 @@ let cache = { at: 0, value: null };
 let inflight = null;
 
 const hide = (n, k) => (n >= k ? n : null);
+
 /**
  * Primary suppression hides any cell below k. Complementary suppression stops "total minus visible cells"
- * from revealing a hidden one: if the hidden cells sum to less than k, the smallest visible cells are hidden too.
+ * from revealing a hidden one.
  */
 function suppressCells(cells, k) {
   const out = {};
@@ -63,30 +64,45 @@ async function compute() {
                 GROUP BY 1, 2`),
   ]);
 
-  // Categories: show those with enough cases, pool the rest into OTHER. If the pool is itself below k,
-  // fold in the smallest visible categories until it is not, so total - visible can never expose a small count.
-  const catCounts = new Map(byCategory.rows.map((r) => [r.category, r.n]));
-  const counts = CATEGORIES.map((c) => ({ category: c, n: catCounts.get(c) ?? 0 }));
-  const shown = counts.filter((c) => c.n >= k).sort((a, b) => a.n - b.n);
-  let pooled = counts.filter((c) => c.n < k).reduce((sum, c) => sum + c.n, 0);
-  while (pooled > 0 && pooled < k && shown.length) pooled += shown.shift().n;
-  const visible = new Set(shown.map((c) => c.category));
-  const categories = CATEGORIES.filter((c) => visible.has(c)).map((c) => ({ category: c, count: catCounts.get(c) }));
-  if (pooled > 0) {
-    categories.push({ category: 'OTHER', count: hide(pooled, k), suppressed: pooled < k });
+  const catCounts = new Map(byCategory.rows.map((r) => [r.category, Number(r.n)]));
+  let categories;
+  let visible;
+  if (k <= 1) {
+    visible = new Set(CATEGORIES);
+    categories = CATEGORIES.map((c) => ({
+      category: c,
+      count: catCounts.get(c) ?? 0,
+      suppressed: false,
+    }));
+  } else {
+    const counts = CATEGORIES.map((c) => ({ category: c, n: catCounts.get(c) ?? 0 }));
+    const shown = counts.filter((c) => c.n >= k).sort((a, b) => a.n - b.n);
+    let pooled = counts.filter((c) => c.n < k).reduce((sum, c) => sum + c.n, 0);
+    while (pooled > 0 && pooled < k && shown.length) pooled += shown.shift().n;
+    visible = new Set(shown.map((c) => c.category));
+    categories = CATEGORIES.filter((c) => visible.has(c)).map((c) => ({ category: c, count: catCounts.get(c) }));
+    if (pooled > 0) {
+      categories.push({ category: 'OTHER', count: hide(pooled, k), suppressed: pooled < k });
+    }
   }
 
-  // Resolution time per visible category (needs k resolved cases).
+  // Resolution time per visible category.
   const resByCat = new Map(resolution.rows.map((r) => [r.category, r]));
   const avgHoursByCategory = [...visible].map((c) => {
     const r = resByCat.get(c);
-    const enough = r && r.n >= k;
-    return { category: c, resolvedCount: enough ? r.n : null, avgHours: enough ? round1(r.avg_hours) : null, suppressed: !enough };
+    const n = Number(r?.n || 0);
+    const enough = k <= 1 ? true : n >= k;
+    return {
+      category: c,
+      resolvedCount: enough ? n : null,
+      avgHours: enough && n > 0 ? round1(r.avg_hours) : 0,
+      suppressed: !enough,
+    };
   });
-  const totalResolved = resolution.rows.reduce((s, r) => s + r.n, 0);
-  const weighted = resolution.rows.reduce((s, r) => s + Number(r.avg_hours) * r.n, 0);
+  const totalResolved = resolution.rows.reduce((s, r) => s + Number(r.n), 0);
+  const weighted = resolution.rows.reduce((s, r) => s + Number(r.avg_hours) * Number(r.n), 0);
 
-  // Monthly trend series for visible categories (cells under k are suppressed).
+  // Monthly trend series for visible categories.
   const months = [];
   const start = new Date();
   start.setUTCDate(1);
@@ -95,31 +111,42 @@ async function compute() {
     months.push(`${start.getUTCFullYear()}-${String(start.getUTCMonth() + 1).padStart(2, '0')}`);
     start.setUTCMonth(start.getUTCMonth() + 1);
   }
-  const cell = new Map(trends.rows.map((r) => [`${r.category}|${r.month}`, r.n]));
+  const cell = new Map(trends.rows.map((r) => [`${r.category}|${r.month}`, Number(r.n)]));
   const series = [...visible].map((c) => ({
     category: c,
-    counts: months.map((m) => hide(cell.get(`${c}|${m}`) ?? 0, k)),
+    counts: months.map((m) => (k <= 1 ? (cell.get(`${c}|${m}`) ?? 0) : hide(cell.get(`${c}|${m}`) ?? 0, k))),
   }));
 
   const s = summary.rows[0];
-  const status = suppressCells({ open: s.open, resolved: s.resolved, escalated: s.escalated }, k);
-  const decided = sla.rows[0].decided;
+  const total = Number(s?.total || 0);
+  const open = Number(s?.open || 0);
+  const resolved = Number(s?.resolved || 0);
+  const escalated = Number(s?.escalated || 0);
+  const resolutionRate = total > 0 ? Math.round((resolved / total) * 1000) / 10 : 0;
+
+  const status = k <= 1 ? { open, resolved, escalated } : suppressCells({ open, resolved, escalated }, k);
+  const decided = Number(sla.rows[0]?.decided || 0);
+  const onTime = Number(sla.rows[0]?.on_time || 0);
+  const complianceRate = decided > 0 ? Math.round((onTime / decided) * 1000) / 10 : 100;
+
   return {
     generatedAt: new Date().toISOString(),
     minCount: k,
     summary: {
-      total: hide(s.total, k),
+      total: k <= 1 ? total : hide(total, k),
       open: status.open,
       resolved: status.resolved,
       escalated: status.escalated,
+      resolutionRate, // Exact percentage of how many petitions came vs how many were resolved!
     },
     resolution: {
-      overallAvgHours: totalResolved >= k ? round1(weighted / totalResolved) : null,
+      overallAvgHours: (k <= 1 || totalResolved >= k) && totalResolved > 0 ? round1(weighted / totalResolved) : 0,
       avgHoursByCategory,
     },
     slaCompliance: {
-      rate: decided >= k ? Math.round((sla.rows[0].on_time / decided) * 1000) / 10 : null,
-      casesConsidered: hide(decided, k),
+      rate: (k <= 1 || decided >= k) ? complianceRate : null,
+      casesConsidered: k <= 1 ? decided : hide(decided, k),
+      onTime,
       definition: 'Share of resolved or overdue cases that were resolved within their original SLA deadline',
     },
     categories,
