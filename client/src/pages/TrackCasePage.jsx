@@ -185,10 +185,10 @@ export function TrackCasePage({ initialToken = '', onNavigate }) {
             <span>Complaint Tracking Portal</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-aubergine-900 tracking-tight">
-            Track Case with Complaint ID
+            Track Anonymous Complaint
           </h1>
           <p className="text-xs sm:text-sm text-silver-600 mt-1 leading-relaxed">
-            Enter your Complaint ID (or Tracking Token) to inspect the live investigation status, officer communications, and cryptographic audit records.
+            Enter your secret 43-character receipt token to view your complaint status, officer communications, and audit records.
           </p>
         </div>
 
@@ -199,7 +199,7 @@ export function TrackCasePage({ initialToken = '', onNavigate }) {
                 type="text"
                 value={tokenInput}
                 onChange={(e) => setTokenInput(e.target.value)}
-                placeholder="Enter Complaint ID (e.g. 3fa85f64-5717-4562-b3fc-2c963f66afa6)..."
+                placeholder="Paste your secret receipt token..."
                 required
                 className="w-full pl-4 pr-10 py-3 text-sm font-mono bg-silver-50 border border-silver-300 rounded-xl focus:border-marigold-500 focus:bg-white focus:ring-1 focus:ring-marigold-500 text-silver-900"
               />

@@ -128,8 +128,7 @@ export async function createTicket({ actor, data, files = [], idempotencyKey = n
     : null;
 
   const customTicketId = crypto.randomUUID();
-  // The tracking receipt ID and complaint ID are the exact same identifier
-  const receiptToken = anonymous ? customTicketId : null;
+  const receiptToken = anonymous ? generateReceiptToken() : null;
   const receiptHash = anonymous ? hashReceiptToken(receiptToken) : null;
   const now = new Date();
 
@@ -224,7 +223,7 @@ export async function createTicket({ actor, data, files = [], idempotencyKey = n
     ticketId: result.ticket.id,
     status: result.ticket.status,
     dueAt: result.ticket.due_at,
-    receiptToken: anonymous ? result.ticket.id : null, // Complaint ID and tracking receipt token are identical
+    receiptToken: anonymous ? receiptToken : null, // Complaint ID and tracking receipt token are identical
   };
 }
 
