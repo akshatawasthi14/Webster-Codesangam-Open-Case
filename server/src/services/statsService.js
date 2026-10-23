@@ -95,7 +95,7 @@ async function compute() {
     return {
       category: c,
       resolvedCount: enough ? n : null,
-      avgHours: enough && n > 0 ? round1(r.avg_hours) : 0,
+      avgHours: enough && n > 0 ? round1(r.avg_hours) : null,
       suppressed: !enough,
     };
   });
@@ -122,13 +122,31 @@ async function compute() {
   const open = Number(s?.open || 0);
   const resolved = Number(s?.resolved || 0);
   const escalated = Number(s?.escalated || 0);
-  const resolutionRate = total > 0 ? Math.round((resolved / total) * 1000) / 10 : 0;
 
-  const status = k <= 1 ? { open, resolved, escalated } : suppressCells({ open, resolved, escalated }, k);
+  const status =
+    k <= 1
+      ? { open, resolved, escalated }
+      : suppressCells({ open, resolved, escalated }, k);
+
+  const totalVisible = k <= 1 || total >= k;
+  const resolvedVisible = k <= 1 || resolved >= k;
+
+  const resolutionRate =
+    totalVisible && resolvedVisible && total > 0
+      ? Math.round((resolved / total) * 1000) / 10
+      : null;
+
+
   const decided = Number(sla.rows[0]?.decided || 0);
   const onTime = Number(sla.rows[0]?.on_time || 0);
-  const complianceRate = decided > 0 ? Math.round((onTime / decided) * 1000) / 10 : 100;
 
+  const slaVisible =
+    k <= 1 || (decided >= k && onTime >= k);
+
+  const complianceRate =
+    decided > 0
+    ? Math.round((onTime / decided) * 1000) / 10
+    : null;
   return {
     generatedAt: new Date().toISOString(),
     minCount: k,
@@ -137,17 +155,20 @@ async function compute() {
       open: status.open,
       resolved: status.resolved,
       escalated: status.escalated,
-      resolutionRate, // Exact percentage of how many petitions came vs how many were resolved!
+      resolutionRate,
     },
     resolution: {
-      overallAvgHours: (k <= 1 || totalResolved >= k) && totalResolved > 0 ? round1(weighted / totalResolved) : 0,
+      overallAvgHours: (k <= 1 || totalResolved >= k) && totalResolved > 0
+    ? round1(weighted / totalResolved)
+    : null,
       avgHoursByCategory,
     },
     slaCompliance: {
-      rate: (k <= 1 || decided >= k) ? complianceRate : null,
+      rate: slaVisible ? complianceRate : null,
       casesConsidered: k <= 1 ? decided : hide(decided, k),
-      onTime,
-      definition: 'Share of resolved or overdue cases that were resolved within their original SLA deadline',
+      onTime: k <= 1 ? onTime : hide(onTime, k),
+      definition:
+        'Share of resolved or overdue cases that were resolved within their original SLA deadline',
     },
     categories,
     trends: { months, series },

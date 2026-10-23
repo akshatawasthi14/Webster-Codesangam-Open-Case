@@ -64,21 +64,18 @@ export function TransparencyPage() {
   const slaCompliance = stats?.slaCompliance || {};
   const trends = stats?.trends || { months: [], series: [] };
 
-  const totalFiled = summary?.total !== null && summary?.total !== undefined ? Number(summary.total) : 0;
-  const underReview = summary?.open !== null && summary?.open !== undefined ? Number(summary.open) : 0;
-  const resolvedCount = summary?.resolved !== null && summary?.resolved !== undefined ? Number(summary.resolved) : 0;
-  const escalatedCount = summary?.escalated !== null && summary?.escalated !== undefined ? Number(summary.escalated) : 0;
+  const totalFiled = summary?.total ?? null;
+  const underReview = summary?.open ?? null;
+  const resolvedCount = summary?.resolved ?? null;
+  const escalatedCount = summary?.escalated ?? null;
 
   // Exact percentage: How many petitions came and how many actually got resolved
-  const resolutionRate =
-    summary?.resolutionRate !== undefined && summary?.resolutionRate !== null
-      ? summary.resolutionRate
-      : (totalFiled > 0 ? Math.round((resolvedCount / totalFiled) * 1000) / 10 : 0);
+  const resolutionRate = summary?.resolutionRate ?? null;
 
   const slaComplianceRate =
-    slaCompliance.rate !== null && slaCompliance.rate !== undefined
-      ? `${slaCompliance.rate}%`
-      : '100%';
+  slaCompliance.rate !== null && slaCompliance.rate !== undefined
+    ? `${slaCompliance.rate}%`
+    : 'Suppressed';
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-10">
@@ -174,7 +171,7 @@ export function TransparencyPage() {
               </span>
               <div className="flex items-baseline justify-between">
                 <span className="text-4xl font-extrabold text-silver-900 font-mono">
-                  {totalFiled}
+                  {totalFiled === null ? 'Suppressed' : totalFiled}
                 </span>
                 <span className="text-xs font-semibold text-aubergine-800 bg-aubergine-50 px-2 py-0.5 rounded border border-aubergine-200">
                   Total
@@ -192,7 +189,7 @@ export function TransparencyPage() {
               </span>
               <div className="flex items-baseline justify-between">
                 <span className="text-4xl font-extrabold text-marigold-600 font-mono">
-                  {underReview}
+                  {underReview === null ? 'Suppressed' : underReview}
                 </span>
                 <span className="text-xs font-semibold text-marigold-800 bg-marigold-50 px-2 py-0.5 rounded border border-marigold-200">
                   Active
@@ -210,7 +207,7 @@ export function TransparencyPage() {
               </span>
               <div className="flex items-baseline justify-between">
                 <span className="text-4xl font-extrabold text-emerald-600 font-mono">
-                  {resolvedCount}
+                  {resolvedCount === null ? 'Suppressed' : resolvedCount}
                 </span>
                 <span className="text-xs font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
                   Concluded
@@ -232,7 +229,7 @@ export function TransparencyPage() {
                   {resolutionRate}%
                 </span>
                 <span className="text-xs font-semibold text-aubergine-900 bg-marigold-200/80 px-2.5 py-0.5 rounded-full border border-marigold-400 font-mono">
-                  {resolvedCount} / {totalFiled}
+                  {resolvedCount === null ? 'Suppressed' : resolvedCount} / {totalFiled === null ? 'Suppressed' : totalFiled}
                 </span>
               </div>
               <p className="text-[11px] text-silver-600">
@@ -252,7 +249,10 @@ export function TransparencyPage() {
                   Statutory SLA Adherence
                 </span>
                 <p className="text-sm text-silver-800 font-medium">
-                  {slaCompliance.onTime ?? 0} of {slaCompliance.casesConsidered ?? 0} decided petitions resolved strictly within their SLA deadline.
+                  {slaCompliance.onTime == null ||
+                  slaCompliance.casesConsidered == null
+                    ? 'SLA counts suppressed'
+                    : `${slaCompliance.onTime} of ${slaCompliance.casesConsidered} decided petitions resolved within their original SLA deadline.`}
                 </p>
               </div>
             </div>
@@ -337,14 +337,16 @@ export function TransparencyPage() {
                       <div className="space-y-0.5">
                         <span className="font-bold text-silver-900 block">{r.category}</span>
                         <span className="text-[10px] text-silver-500">
-                          {r.resolvedCount > 0
-                            ? `Based on ${r.resolvedCount} resolved petitions`
-                            : 'No resolved cases yet'}
+                          {r.resolvedCount == null
+                            ? 'Insufficient data to publish'
+                            : r.resolvedCount > 0
+                              ? `Based on ${r.resolvedCount} resolved petitions`
+                              : 'No resolved cases yet'}
                         </span>
                       </div>
 
                       <div className="text-right">
-                        {r.avgHours > 0 ? (
+                        {r.avgHours != null ? (
                           <div className="flex items-baseline gap-1">
                             <span className="text-base font-extrabold text-aubergine-900 font-mono">
                               {r.avgHours}
@@ -406,8 +408,10 @@ export function TransparencyPage() {
                             const val = item.counts && Array.isArray(item.counts) ? item.counts[mIdx] : null;
                             return (
                               <td key={m} className="py-3 px-3 font-mono text-silver-700">
-                                {val === null || val === undefined || val === 0 ? (
-                                  <span className="text-silver-400 text-[11px]">0</span>
+                                {val == null ? (
+                                  <span className="text-silver-400 text-[11px]">
+                                    Suppressed
+                                  </span>
                                 ) : (
                                   <span className="font-bold text-aubergine-900">{val}</span>
                                 )}
