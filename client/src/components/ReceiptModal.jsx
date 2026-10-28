@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShieldCheck, Copy, Check, Download, ArrowRight, AlertTriangle, BookmarkCheck } from 'lucide-react';
+import { ShieldCheck, Copy, Check, Download, ArrowRight, AlertTriangle, Key } from 'lucide-react';
 import { formatDate } from '../utils/formatters.js';
 
 export function ReceiptModal({
@@ -10,18 +10,18 @@ export function ReceiptModal({
   dueAt,
   onNavigateToTrack,
 }) {
-  const [copied, setCopied] = useState(false);
+  const [copiedToken, setCopiedToken] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
   const [hasSaved, setHasSaved] = useState(false);
   const [rememberLocal, setRememberLocal] = useState(true);
 
   if (!isOpen || !receiptToken) return null;
 
-  const handleCopy = () => {
+  const handleCopyToken = () => {
     navigator.clipboard.writeText(receiptToken);
-    setCopied(true);
+    setCopiedToken(true);
     setHasSaved(true);
-    setTimeout(() => setCopied(false), 2500);
+    setTimeout(() => setCopiedToken(false), 2500);
   };
 
   const handleCopyTicketId = () => {
@@ -35,7 +35,7 @@ export function ReceiptModal({
     const textContent = `OPEN CASE - ANONYMOUS PETITION RECEIPT
 ==================================================
 Date Filed: ${new Date().toUTCString()}
-Complaint ID: ${ticketId}
+Complaint ID: ${ticketId || 'N/A'}
 SLA Resolution Due: ${formatDate(dueAt)}
 
 YOUR SECRET RECEIPT TOKEN:
@@ -54,7 +54,7 @@ view officer comments, or verify the audit trail.
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `open-case-receipt-${ticketId.slice(0, 8)}.txt`;
+    link.download = `open-case-receipt-${ticketId ? ticketId.slice(0, 8) : 'anonymous'}.txt`;
     link.click();
     URL.revokeObjectURL(url);
     setHasSaved(true);
@@ -107,34 +107,40 @@ view officer comments, or verify the audit trail.
             </p>
           </div>
 
-          {/* Complaint / Tracking ID Display */}
+          {/* Secret Receipt Token Display */}
           <div className="space-y-1.5">
-            <span className="text-xs font-semibold text-silver-700 uppercase tracking-wider block">
-              Complaint & Tracking ID
-            </span>
-            <div className="p-3 bg-silver-100 border border-silver-300 rounded-xl font-mono text-sm break-all select-all flex items-center justify-between gap-3 text-aubergine-950 font-bold">
-              <span>{ticketId || receiptToken}</span>
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-aubergine-900 uppercase tracking-wider flex items-center gap-1.5">
+                <Key className="w-3.5 h-3.5 text-marigold-600" />
+                <span>Secret Receipt Token (Your Private Access Key)</span>
+              </span>
+              <span className="text-[10px] font-mono text-amber-800 font-bold bg-amber-100 px-2 py-0.5 rounded">
+                43 Characters
+              </span>
+            </div>
+            <div className="p-3 bg-aubergine-950 border-2 border-marigold-500/70 rounded-xl font-mono text-sm break-all select-all flex items-center justify-between gap-3 text-marigold-300 font-bold shadow-inner">
+              <span className="tracking-wide select-all">{receiptToken}</span>
               <button
                 type="button"
-                onClick={handleCopy}
-                className="flex-shrink-0 p-2 text-aubergine-800 hover:text-aubergine-950 bg-white border border-silver-300 hover:border-silver-400 rounded-lg transition-colors flex items-center gap-1 text-xs font-sans font-medium"
-                title="Copy Complaint ID"
+                onClick={handleCopyToken}
+                className="flex-shrink-0 px-3 py-1.5 text-aubergine-950 bg-marigold-400 hover:bg-marigold-300 rounded-lg transition-colors flex items-center gap-1 text-xs font-sans font-bold shadow-sm"
+                title="Copy Secret Receipt Token"
               >
-                {copied ? (
+                {copiedToken ? (
                   <>
-                    <Check className="w-4 h-4 text-emerald-600" />
-                    <span className="text-emerald-700 font-semibold">Copied!</span>
+                    <Check className="w-4 h-4 text-emerald-800" />
+                    <span className="text-emerald-950 font-bold">Copied!</span>
                   </>
                 ) : (
                   <>
                     <Copy className="w-4 h-4" />
-                    <span>Copy ID</span>
+                    <span>Copy Token</span>
                   </>
                 )}
               </button>
             </div>
-            <p className="text-[11px] text-silver-500">
-              Your Complaint ID is your tracking identifier. Keep it safe to search and follow this case at any time.
+            <p className="text-[11px] text-silver-600">
+              Use this exact secret token on the <strong>Track Grievance</strong> page to monitor responses and audit trails.
             </p>
           </div>
 
@@ -165,40 +171,42 @@ view officer comments, or verify the audit trail.
           </div>
 
           {/* Complaint Reference Information */}
-          <div className="p-3 bg-silver-50 rounded-xl border border-silver-200 space-y-2 text-xs">
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <span className="text-silver-500 font-bold uppercase text-[10px] tracking-wider block">
-                  Complaint ID:
-                </span>
-                <span className="font-mono font-bold text-aubergine-950 select-all">
-                  {ticketId}
-                </span>
+          {ticketId && (
+            <div className="p-3 bg-silver-50 rounded-xl border border-silver-200 space-y-2 text-xs">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <span className="text-silver-500 font-bold uppercase text-[10px] tracking-wider block">
+                    Complaint ID (Public Reference):
+                  </span>
+                  <span className="font-mono font-bold text-aubergine-950 select-all">
+                    {ticketId}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCopyTicketId}
+                  className="px-2.5 py-1 text-xs font-sans font-semibold text-aubergine-800 bg-white border border-silver-300 hover:bg-silver-100 rounded-lg flex items-center gap-1 transition-colors"
+                  title="Copy Complaint ID"
+                >
+                  {copiedId ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                      <span className="text-emerald-700 font-bold">Copied</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-3.5 h-3.5" />
+                      <span>Copy ID</span>
+                    </>
+                  )}
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={handleCopyTicketId}
-                className="px-2.5 py-1 text-xs font-sans font-semibold text-aubergine-800 bg-white border border-silver-300 hover:bg-silver-100 rounded-lg flex items-center gap-1 transition-colors"
-                title="Copy Complaint ID"
-              >
-                {copiedId ? (
-                  <>
-                    <Check className="w-3.5 h-3.5 text-emerald-600" />
-                    <span className="text-emerald-700">Copied</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-3.5 h-3.5" />
-                    <span>Copy ID</span>
-                  </>
-                )}
-              </button>
+              <div className="pt-2 border-t border-silver-200 flex items-center justify-between text-[11px]">
+                <span className="text-silver-500 font-medium">SLA Resolution Target:</span>
+                <span className="font-semibold text-silver-900">{formatDate(dueAt)}</span>
+              </div>
             </div>
-            <div className="pt-2 border-t border-silver-200 flex items-center justify-between text-[11px]">
-              <span className="text-silver-500 font-medium">SLA Resolution Target:</span>
-              <span className="font-semibold text-silver-900">{formatDate(dueAt)}</span>
-            </div>
-          </div>
+          )}
 
           {/* Action Buttons */}
           <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3">

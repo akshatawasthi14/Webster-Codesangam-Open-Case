@@ -37,6 +37,9 @@ export function FileTicketPage({ onNavigate }) {
 
   const handleFileChange = async (e) => {
     const selected = Array.from(e.target.files || []);
+    // Reset file input so re-selecting same files triggers change
+    e.target.value = '';
+
     if (files.length + selected.length > 5) {
       setError('You may upload at most 5 attachments per ticket.');
       return;
@@ -100,6 +103,13 @@ export function FileTicketPage({ onNavigate }) {
 
       if (isAnonymous) {
         const result = await createAnonymousTicket(formData, idempotencyKey);
+        if (result.replayed && !result.receiptToken) {
+          setError(
+            result.note ||
+              'This grievance was already submitted previously. Because anonymous receipt tokens are shown only once, please use your previously saved receipt token.'
+          );
+          return;
+        }
         setReceiptData({
           receiptToken: result.receiptToken,
           ticketId: result.ticketId,
@@ -378,4 +388,3 @@ export function FileTicketPage({ onNavigate }) {
     </div>
   );
 }
-

@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
 
 export class ApiError extends Error {
   constructor(status, code, message, details = null, retryAfter = null) {
@@ -64,8 +64,18 @@ export async function apiRequest(endpoint, {
   if (!response.ok) {
     const errorPayload = data && typeof data === 'object' && data.error ? data.error : null;
     const code = errorPayload?.code || (data?.code) || `HTTP_${response.status}`;
-    const message = errorPayload?.message || (data?.message) || (typeof data === 'string' ? data : response.statusText);
+    let message = errorPayload?.message || (data?.message) || (typeof data === 'string' ? data : response.statusText);
     const details = errorPayload?.details || data?.details || null;
+
+    if (Array.isArray(details) && details.length > 0) {
+      const detailedNotes = details
+        .filter((d) => d && d.message)
+        .map((d) => (d.path ? `${d.path}: ${d.message}` : d.message))
+        .join('; ');
+      if (detailedNotes) {
+        message = `${message}: ${detailedNotes}`;
+      }
+    }
     
     // Extract Retry-After if rate limited
     const retryHeader = response.headers.get('Retry-After');
