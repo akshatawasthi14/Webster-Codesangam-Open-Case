@@ -49,6 +49,10 @@ async function contentMatchesDeclaredType(file) {
   }
 }
 
+// busboy (inside multer) reports a broken body as a plain Error, which would otherwise surface as a 500.
+const MALFORMED_MULTIPART = /^(Multipart: |Unexpected end of form|Malformed part header|Missing Content-Type)/;
+const isMalformedMultipart = (err) => err instanceof Error && MALFORMED_MULTIPART.test(err.message);
+
 /** Parses multipart/form-data with up to MAX_FILES_PER_TICKET files in the "attachments" field. */
 export function uploadAttachments(req, res, next) {
   upload.array('attachments', config.uploads.maxFiles)(req, res, async (err) => {
@@ -74,6 +78,9 @@ export function uploadAttachments(req, res, next) {
     if (err instanceof multer.MulterError) {
       const status = err.code === 'LIMIT_FILE_SIZE' ? 413 : 400;
       return next(new AppError(status, err.code, err.message));
+    }
+    if (isMalformedMultipart(err)) {
+      return next(new AppError(400, 'MALFORMED_MULTIPART', 'The upload is not a well-formed multipart/form-data request'));
     }
     next(err);
   });
