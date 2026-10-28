@@ -19,12 +19,14 @@ import { RegisterPage } from './pages/RegisterPage.jsx';
 
 function AppContent() {
   const { isAuthenticated, isStudent, isOfficer, isAdmin, loading } = useAuth();
-  const [currentPath, setCurrentPath] = useState(window.location.pathname || '/');
+  const [currentPath, setCurrentPath] = useState(
+    (window.location.pathname || '/') + (window.location.search || '')
+  );
 
   // Listen to browser Back/Forward navigation
   useEffect(() => {
     const handlePopState = () => {
-      setCurrentPath(window.location.pathname || '/');
+      setCurrentPath((window.location.pathname || '/') + (window.location.search || ''));
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
@@ -36,8 +38,11 @@ function AppContent() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Extract query parameters if on /track
-  const urlParams = new URLSearchParams(window.location.search);
+  // Separate pathname and search query string
+  const [pathname, queryString] = (currentPath || '/').split('?');
+  const urlParams = new URLSearchParams(
+    queryString !== undefined ? queryString : window.location.search
+  );
   const initialReceiptToken = urlParams.get('token') || urlParams.get('receipt') || '';
 
   // Determine which page to render based on path
@@ -54,12 +59,12 @@ function AppContent() {
     }
 
     // Match /tickets/:id
-    const ticketMatch = currentPath.match(/^\/tickets\/([a-zA-Z0-9-]+)/);
+    const ticketMatch = pathname.match(/^\/tickets\/([a-zA-Z0-9-]+)/);
     if (ticketMatch) {
       return <TicketDetailPage ticketId={ticketMatch[1]} onNavigate={navigate} />;
     }
 
-    switch (currentPath) {
+    switch (pathname) {
       case '/':
         return <HomePage onNavigate={navigate} />;
       case '/file':
@@ -87,7 +92,7 @@ function AppContent() {
 
   return (
     <div className="min-h-screen flex flex-col bg-[#EBEAE5] text-aubergine-950 selection:bg-marigold-200 selection:text-aubergine-950 font-sans">
-      <Navbar currentPath={currentPath} onNavigate={navigate} />
+      <Navbar currentPath={pathname} onNavigate={navigate} />
 
       <main className="flex-1">
         {renderPage()}
@@ -110,4 +115,3 @@ export default function App() {
     </AuthProvider>
   );
 }
-

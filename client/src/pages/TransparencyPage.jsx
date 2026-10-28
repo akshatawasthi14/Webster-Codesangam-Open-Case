@@ -71,11 +71,15 @@ export function TransparencyPage() {
 
   // Exact percentage: How many petitions came and how many actually got resolved
   const resolutionRate = summary?.resolutionRate ?? null;
+  const formattedResolutionRate =
+    resolutionRate !== null && resolutionRate !== undefined
+      ? `${resolutionRate}%`
+      : 'Suppressed';
 
   const slaComplianceRate =
-  slaCompliance.rate !== null && slaCompliance.rate !== undefined
-    ? `${slaCompliance.rate}%`
-    : 'Suppressed';
+    slaCompliance.rate !== null && slaCompliance.rate !== undefined
+      ? `${slaCompliance.rate}%`
+      : 'Suppressed';
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-10">
@@ -226,7 +230,7 @@ export function TransparencyPage() {
               </span>
               <div className="flex items-baseline justify-between">
                 <span className="text-4xl font-extrabold text-aubergine-950 font-mono">
-                  {resolutionRate}%
+                  {formattedResolutionRate}
                 </span>
                 <span className="text-xs font-semibold text-aubergine-900 bg-marigold-200/80 px-2.5 py-0.5 rounded-full border border-marigold-400 font-mono">
                   {resolvedCount === null ? 'Suppressed' : resolvedCount} / {totalFiled === null ? 'Suppressed' : totalFiled}

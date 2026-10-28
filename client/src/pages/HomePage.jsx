@@ -52,6 +52,11 @@ export function HomePage({ onNavigate }) {
       return;
     }
     setQuickTrackError('');
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed);
+    if (isUuid && isAuthenticated) {
+      onNavigate(`/tickets/${trimmed}`);
+      return;
+    }
     onNavigate(`/track?token=${encodeURIComponent(trimmed)}`);
   };
 
@@ -299,7 +304,7 @@ export function HomePage({ onNavigate }) {
                 Already Filed? Track with Complaint ID
               </h3>
               <p className="text-xs text-aubergine-900/70 leading-relaxed">
-                Your Complaint ID is the receipt token. Enter it below to check current stage, assigned officer, SLA deadlines, and audit history.
+                Enter your secret 43-character receipt token (or Complaint ID if signed in) to check current stage, assigned officer, SLA deadlines, and audit history.
               </p>
             </div>
 
@@ -315,7 +320,7 @@ export function HomePage({ onNavigate }) {
                         setQuickTrackId(e.target.value);
                         setQuickTrackError('');
                       }}
-                      placeholder="e.g. 550e8400-e29b-41d4-a716-446655440000"
+                      placeholder="Paste secret receipt token or Complaint ID..."
                       className="w-full pl-10 pr-4 py-3 rounded-xl bg-silver-50 border border-aubergine-900/20 text-xs sm:text-sm font-mono text-aubergine-950 placeholder-silver-500 focus:outline-none focus:ring-2 focus:ring-marigold-500/50 focus:border-marigold-500 transition-all"
                     />
                   </div>
@@ -493,7 +498,7 @@ export function HomePage({ onNavigate }) {
               Anonymous Reporting by Construction
             </h3>
             <p className="text-xs sm:text-sm text-silver-300 leading-relaxed">
-              Complainants facing sensitive concerns report with absolute protection. The system creates zero account links, logs zero IP addresses, and secures access using your unique 36-character Complaint ID token.
+              Complainants facing sensitive concerns report with absolute protection. The system creates zero account links, logs zero IP addresses, and secures access using your unique 43-character secret receipt token.
             </p>
             <div className="pt-2 flex flex-wrap gap-4">
               {!isOfficer && !isAdmin && (
@@ -527,9 +532,9 @@ export function HomePage({ onNavigate }) {
               )
             </p>
             <div className="pt-2 text-[11px] text-silver-300 font-sans space-y-1">
-              <p>✓ Complaint ID is the receipt token — simple tracking</p>
+              <p>✓ Receipt token provides exclusive anonymous access</p>
               <p>✓ Token shown once on filing; only SHA-256 hash stored on server</p>
-              <p>✓ Public statistics update automatically with zero suppression</p>
+              <p>✓ Public statistics update automatically with live database sync</p>
             </div>
           </div>
         </div>
