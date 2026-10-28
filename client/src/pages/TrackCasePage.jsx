@@ -84,14 +84,19 @@ export function TrackCasePage({ initialToken = '', onNavigate }) {
     setError('');
     setVerifyResult(null);
 
+    const trimmed = tokenToUse.trim();
+
     try {
-      const data = await getAnonymousCase(tokenToUse.trim());
+      const data = await getAnonymousCase(trimmed);
       setCaseData(data);
-      setActiveToken(tokenToUse.trim());
+      setActiveToken(trimmed);
     } catch (err) {
       setCaseData(null);
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed);
       setError(
-        err.status === 401
+        isUuid
+          ? 'The entered identifier is a Complaint ID (UUID). Anonymous petitions require the 43-character Secret Receipt Token. If this is a named petition, please sign in to view it in your dashboard.'
+          : err.status === 401
           ? 'Invalid or unrecognized receipt token. Check that you pasted the exact 43-character token.'
           : err.message || 'Failed to fetch case details.'
       );
@@ -225,9 +230,20 @@ export function TrackCasePage({ initialToken = '', onNavigate }) {
           </div>
 
           {error && (
-            <div className="p-3 bg-rose-50 border border-rose-200 text-rose-900 text-xs rounded-xl flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-rose-600 flex-shrink-0" />
-              <span>{error}</span>
+            <div className="p-3 bg-rose-50 border border-rose-200 text-rose-900 text-xs rounded-xl flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-rose-600 flex-shrink-0" />
+                <span>{error}</span>
+              </div>
+              {/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tokenInput.trim()) && onNavigate && (
+                <button
+                  type="button"
+                  onClick={() => onNavigate(`/tickets/${tokenInput.trim()}`)}
+                  className="px-2.5 py-1 text-xs font-bold bg-aubergine-800 text-white rounded-lg hover:bg-aubergine-900 whitespace-nowrap flex-shrink-0"
+                >
+                  View Case
+                </button>
+              )}
             </div>
           )}
         </form>
@@ -530,4 +546,3 @@ export function TrackCasePage({ initialToken = '', onNavigate }) {
     </div>
   );
 }
-

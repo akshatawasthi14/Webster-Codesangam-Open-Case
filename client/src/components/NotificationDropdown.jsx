@@ -24,8 +24,8 @@ export function NotificationDropdown({ onSelectTicket }) {
     }
     if (notif.ticketId && onSelectTicket) {
       onSelectTicket(notif.ticketId);
-      setIsOpen(false);
     }
+    setIsOpen(false);
   };
 
   return (
@@ -129,4 +129,3 @@ export function NotificationDropdown({ onSelectTicket }) {
     </div>
   );
 }
-

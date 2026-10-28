@@ -32,29 +32,40 @@ export function OfficerDashboard({ onNavigate }) {
     setLoading(true);
     setError('');
     try {
-      let statusQuery = undefined;
       if (activeTab === 'unassigned') {
-        statusQuery = 'FILED';
+        const data = await listTickets({
+          status: 'FILED',
+          priority: priorityFilter || undefined,
+          limit: 50,
+        });
+        setTickets(data.items || []);
       } else if (activeTab === 'resolved') {
-        statusQuery = 'RESOLVED';
+        const data = await listTickets({
+          status: 'RESOLVED',
+          priority: priorityFilter || undefined,
+          limit: 50,
+        });
+        setTickets(data.items || []);
+      } else {
+        // Query active assigned statuses in parallel so unassigned pool tickets cannot crowd out assigned queue
+        const [assignedRes, reviewRes, escalatedRes] = await Promise.all([
+          listTickets({ status: 'ASSIGNED', priority: priorityFilter || undefined, limit: 50 }),
+          listTickets({ status: 'IN_REVIEW', priority: priorityFilter || undefined, limit: 50 }),
+          listTickets({ status: 'ESCALATED', priority: priorityFilter || undefined, limit: 50 }),
+        ]);
+
+        const combined = [
+          ...(assignedRes.items || []),
+          ...(reviewRes.items || []),
+          ...(escalatedRes.items || []),
+        ];
+
+        const myItems = combined
+          .filter((t) => t.assignee?.id === user?.id)
+          .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+        setTickets(myItems);
       }
-
-      const data = await listTickets({
-        status: statusQuery,
-        priority: priorityFilter || undefined,
-        limit: 50,
-      });
-
-      let items = data.items || [];
-
-      // For my workload, filter for tickets assigned to me that are not resolved
-      if (activeTab === 'my-workload') {
-        items = items.filter(
-          (t) => t.assignee?.id === user?.id && t.status !== 'RESOLVED'
-        );
-      }
-
-      setTickets(items);
     } catch (err) {
       setError(err.message || 'Failed to fetch tickets');
     } finally {
@@ -396,4 +407,3 @@ export function OfficerDashboard({ onNavigate }) {
     </div>
   );
 }
-
