@@ -16,6 +16,19 @@ function toAppError(err) {
   if (err.type === 'entity.too.large') return new AppError(413, 'PAYLOAD_TOO_LARGE', 'Request body is too large');
   if (err.type === 'entity.parse.failed') return new AppError(400, 'INVALID_JSON', 'Request body is not valid JSON');
 
+  if (err.type === 'request.aborted') return new AppError(400, 'REQUEST_ABORTED', 'The request was cancelled before it finished');
+  if (err.type === 'encoding.unsupported' || err.type === 'charset.unsupported') {
+    return new AppError(415, 'UNSUPPORTED_ENCODING', 'Unsupported content encoding or charset');
+  }
+
+  // Data that slipped past validation but the database refuses: a client problem, not a server fault.
+  // 22P02 malformed value (e.g. bad UUID), 22001 too long, 22003 out of range, 22021 invalid bytes (e.g. NUL character)
+  if (['22P02', '22001', '22003', '22021'].includes(err.code)) {
+    return new AppError(400, 'INVALID_INPUT', 'A submitted value is malformed or too large');
+  }
+  if (err.code === '23505') return new AppError(409, 'DUPLICATE', 'That record already exists');
+  if (err.code === '23503') return new AppError(409, 'REFERENCE_INVALID', 'A referenced record does not exist');
+
   // PostgreSQL / pool pressure -> 503, never a fake success
   const msg = String(err.message || '');
   if (err.code === '57014') return new AppError(503, 'DB_TIMEOUT', 'The database took too long to respond. Please retry.');

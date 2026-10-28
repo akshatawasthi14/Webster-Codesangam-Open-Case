@@ -1,3 +1,14 @@
+import dotenv from 'dotenv';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const currentFile = fileURLToPath(import.meta.url);
+const currentDir = path.dirname(currentFile);
+
+dotenv.config({
+  path: path.resolve(currentDir, '../.env'),
+});
+
 // Runs before every test file, before any application module reads process.env.
 process.env.NODE_ENV = 'test';
 process.env.DATABASE_URL = process.env.TEST_DATABASE_URL || 'postgres://unused:unused@127.0.0.1:5432/unused';
