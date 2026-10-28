@@ -4,6 +4,10 @@
  */
 
 export async function validateFileMagicBytes(file) {
+  if (!file) {
+    return { valid: false, error: 'No file provided.' };
+  }
+
   if (file.size === 0) {
     return { valid: false, error: `File "${file.name}" is empty (0 bytes).` };
   }
@@ -73,7 +77,8 @@ export async function validateFileMagicBytes(file) {
       }
     }
     try {
-      new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+      // Use { stream: true } to tolerate incomplete multi-byte tail at the slice boundary
+      new TextDecoder('utf-8', { fatal: true }).decode(bytes, { stream: true });
       return { valid: true };
     } catch {
       return {
@@ -88,4 +93,3 @@ export async function validateFileMagicBytes(file) {
     error: `File "${file.name}" has an unsupported format. Only PDF, PNG, JPEG, and TXT are allowed.`,
   };
 }
-
